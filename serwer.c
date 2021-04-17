@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 #include "http.h"
 
 #define BUFFER_SIZE 4096
@@ -17,6 +18,8 @@ void syserr() {
 /////////////////
 
 int main (int argc, char *argv[]) {
+    const char headers_end[] = {13, 10, 13, 10, 0};
+
     if (argc < 3 || argc > 4) {
         fprintf(stderr, "Usage: %s server's_filesystem_root corelated_servers [port_number]\n", argv[0]);
         syserr();
@@ -24,9 +27,12 @@ int main (int argc, char *argv[]) {
 
     const char* filesystem = argv[1];
     DIR* root = opendir(filesystem); // Only used to confirm the existence of the target directory.
-    if (!root)
+    if (!root) {
         // Cannot open the directory
+        printf("DEBUG, cannot open directory\n");
         syserr();
+    }
+        
     closedir(root);
 
     FILE* corelated_servers = fopen(argv[2], "r");
@@ -50,9 +56,11 @@ int main (int argc, char *argv[]) {
     server.sin_addr.s_addr = htonl(INADDR_ANY);
     server.sin_port = htons(port);
     
-    if (bind(sock, (struct sockaddr *)&server, sizeof(server)) == -1)
+    if (bind(sock, (struct sockaddr *)&server, sizeof(server)) == -1) {
         // Socket binding unsuccessful
+        printf("DEBUG - unsuccesfull binding to port %d\n", port);
         syserr();
+    }
 
     if (listen(sock, 5) == -1)
         // Socket opening to listening unsuccessful
@@ -69,52 +77,74 @@ int main (int argc, char *argv[]) {
         size_t remaining_buffer_size = buffer_size;
         char* buffer = malloc(buffer_size + 1);
         memset(buffer, 0, buffer_size + 1);
-        void* read_loc = buffer;
-        size_t read_len = buffer_size; // how many chars to fill the buffer
+        char* read_loc = buffer;
+        char* request_end;
 
-        // Buffer starts with a fragment of the starting line with length ≥ 0.  
+        // Buffer starts with a fragment of the request, which already has been read (with length ≥ 0).  
         for (;;) {
             int ret;
             
-            starting_t starting_line;
-            char* new_begin;
-            // We are trying to read the whole starting-line
+            request_t http_request;
+            // We are trying to read the whole request (preferably without a potential body)
             while (true)
             {
                 ret = read(rcv, read_loc, remaining_buffer_size);
                 if (ret == -1) {
+                    exit(1); //todo
                     // CO TUTAJ MUSZĘ ROBIĆ? chyba to co po send not implemented, ale z send internal server error
                 }
 
-                // Searching for the end of the first line -> CRLF
-                char* content = strchr(read_loc, 13); // Search for CR
+                // Searching for the end of headers -> CR LF CR LF
+                request_end = strstr(buffer, headers_end); // Search for CRLF
                 read_loc += ret;
                 remaining_buffer_size -= ret;
-                if (content != NULL) {
-                    *content = '\0';
-                    new_begin = content + 2;
+                if (request_end != NULL)
                     break;
-                }
 
                 if (remaining_buffer_size == 0) {
-                    
-                }
+                    remaining_buffer_size = buffer_size;
+                    buffer_size *= 2;
+                    char* buf = malloc(buffer_size + 1);
 
+                    if (!buf) {
+                        //send_internal_error(rcv);
+                        // todo
+                        //następnie dotyczaj aż do nowej wiadomosci
+                        exit(1);
+                    }
+
+                    memset(buf + remaining_buffer_size, 0, remaining_buffer_size + 1);
+                    
+                    strcpy(buf, buffer);
+                    read_loc = buf + remaining_buffer_size;
+                    free(buffer);
+                    buffer = buf;
+                }
             }
 
-            ret = parse_starting_line(buffer, &starting_line);
-            if (ret == -1) {
-                send_bad_request(rcv);
+            // Parsing the request
+            *(request_end + 2) = '\0';
+            
+            ret = parse_http_request(buffer, &http_request);
+            if (ret == PARSE_BAD_REQ) {
+                //send_bad_request(rcv);
+                break;
+            }
+            if (ret == PARSE_INTERNAL_ERR) {
+                //send_internal_server_error(rcv);
                 break;
             }
 
-            if (ret == 0) {
-                send_not_implemented(rcv);
-                następnie dotyczaj aż do nowej wiadomosci
+            if (http_request.starting.method == M_OTHER) {
+                //send_not_implemented(rcv);
+                // todo
+                continue;
             }
-            else {
-                new_begin
-            }
+
+            // ↓↓↓todo↓↓↓ metody get i head / tutaj głównie próba odczytu z pliku
+            
+            // Preparing buffer for another communicate
+            exit(1);
         }
 
         close(rcv);
