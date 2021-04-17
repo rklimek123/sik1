@@ -14,26 +14,26 @@ static regex_t server;
 
 // Returns 0 on a success
 static int compile_regexes() {
-    if (regcomp(&starting_line, "^[^\\s]+ \\/[^\\s]* HTTP\\/1\\.1$", 0) == -1) {
+    if (regcomp(&starting_line, "^[^ \t\n\r\f\v]+ \\/[^ \t\n\r\f\v]* HTTP\\/1\\.1$", REG_EXTENDED | REG_NOSUB) == -1) {
         printf("DEBUG: 1st\n");
         return -1;
     }
-    if (regcomp(&verify_target_file, "^\\/[a-zA-Z0-9\\.\\-\\/]*$", REG_NOSUB) == -1) {
+    if (regcomp(&verify_target_file, "^\\/[a-zA-Z0-9\\.\\-\\/]*$", REG_EXTENDED | REG_NOSUB) == -1) {
         printf("DEBUG: 4th\n");
         return -1;
     }
 
-    if (regcomp(&header, "^[^\\s:]+:[ ]*[^\\s]+[ ]*$", REG_NOSUB) == -1)
+    if (regcomp(&header, "^[^ \t\n\r\f\v:]+:[ ]*.+[ ]*$", REG_EXTENDED | REG_NOSUB) == -1)
         return -1;
-    if (regcomp(&connection, "^Connection:[ ]*[^\\s]+[ ]*$", REG_NOSUB || REG_ICASE) == -1)
+    if (regcomp(&connection, "^Connection:", REG_EXTENDED | REG_NOSUB | REG_ICASE) == -1)
         return -1;
-    if (regcomp(&connection_close, "^[^\\s:]+:[ ]*close[ ]*$", REG_NOSUB) == -1)
+    if (regcomp(&connection_close, "^[^ \t\n\r\f\v]+:[ ]*close[ ]*$", REG_EXTENDED | REG_NOSUB) == -1)
         return -1;
-    if (regcomp(&content_type, "^Content-Type:[ ]*[^\\s]+[ ]*$", REG_NOSUB || REG_ICASE) == -1)
+    if (regcomp(&content_type, "^Content-Type:", REG_EXTENDED | REG_NOSUB | REG_ICASE) == -1)
         return -1;
-    if (regcomp(&content_length, "^Content-Length:[ ]*[^\\s]+[ ]*$", REG_NOSUB || REG_ICASE) == -1)
+    if (regcomp(&content_length, "^Content-Length:", REG_EXTENDED | REG_NOSUB | REG_ICASE) == -1)
         return -1;
-    if (regcomp(&server, "^Server:[ ]*[^\\s]+[ ]*$", REG_NOSUB || REG_ICASE) == -1)
+    if (regcomp(&server, "^Server:", REG_EXTENDED | REG_NOSUB | REG_ICASE) == -1)
         return -1;
     
     return 0;
@@ -69,7 +69,7 @@ int parse_http_request(char* raw, request_t* out) {
         return ret;
     printf("DEBUG: successfully parsed starting line\n");
     
-    ret = parse_headers(raw, &(out->headers));
+    ret = parse_headers(headers, &(out->headers));
     if (ret == PARSE_BAD_REQ || ret == PARSE_INTERNAL_ERR)
         return ret;
     printf("DEBUG: successfully parsed headers\n");
@@ -78,32 +78,27 @@ int parse_http_request(char* raw, request_t* out) {
 
 static int parse_starting_line(char* raw, starting_t* out) {
     int ret;
-    printf("DEBUG starting line: \"%s\"\n", raw);
-
-    char* target = raw;
-    while(*target != '\0') {
-        printf("%c\n", *(target++));
-    }
+    //printf("DEBUG starting line: \"%s\"\n", raw);
 
     ret = regexec(&starting_line, raw, 0, NULL, 0);
     if (ret == REG_NOMATCH)
         return PARSE_BAD_REQ;
-    printf("DEBUG: found starting line\n");
+    //printf("DEBUG: found starting line\n");
 
     // Method
     char* found = strstr(raw, "GET");
     if (found != raw) {
         found = strstr(raw, "HEAD");
         if (found != raw) {
-            printf("DEBUG: method OTHER\n");
+            //printf("DEBUG: method OTHER\n");
             out->method = M_OTHER;
             return PARSE_SUCCESS;
         }
-        printf("DEBUG: method HEAD\n");
+        //printf("DEBUG: method HEAD\n");
         out->method = M_HEAD;
     }
     else {
-        printf("DEBUG: method GET\n");
+        //printf("DEBUG: method GET\n");
         out->method = M_GET;
     }
 
@@ -119,15 +114,15 @@ static int parse_starting_line(char* raw, starting_t* out) {
     *target_file_end = '\0';
 
     out->target = target_file;
-    printf("DEBUG: target_file: %s\n", target_file);
+    //printf("DEBUG: target_file: %s\n", target_file);
 
     ret = regexec(&verify_target_file, target_file, 0, NULL, 0);
     if (ret == REG_NOMATCH) {
-        printf("DEBUG: Illegal characters in filename\n");
+        //printf("DEBUG: Illegal characters in filename\n");
         out->target_type = F_INCORRECT;
     }
     else {
-        printf("DEBUG: Filename legal\n");
+        //printf("DEBUG: Filename legal\n");
         out->target_type = F_OK;
     }
 
@@ -135,7 +130,7 @@ static int parse_starting_line(char* raw, starting_t* out) {
 }
 
 static int parse_headers(char* raw, headers_t* out) {
-    printf("DEBUG: headers: %s\n", raw);
+    //printf("DEBUG: headers: %s\n", raw);
     
     out->checked_header[H_CONNECTION] = false;
     out->checked_header[H_CONTENT_LENGTH] = false;
@@ -161,23 +156,28 @@ static int parse_headers(char* raw, headers_t* out) {
 }
 
 static int parse_header(char* raw, headers_t* out) {
+    //printf("DEBUG parsing header \"%s\"\n", raw);
     int ret = regexec(&header, raw, 0, NULL, 0);
     if (ret == REG_NOMATCH)
         return PARSE_BAD_REQ;
+    //printf("DEBUG: indeed a header\n");
     
     ret = regexec(&connection, raw, 0, NULL, 0);
     if (ret == 0) {
+        //printf("DEBUG: connection header\n");
         if (out->checked_header[H_CONNECTION])
             return PARSE_BAD_REQ; // Double header
         out->checked_header[H_CONNECTION] = true;
 
         ret = regexec(&connection_close, raw, 0, NULL, 0);
-        out->con_close = (ret == REG_NOMATCH);
+        out->con_close = (ret == 0);
+        //printf("DEBUG closing? %d\n", ret == 0);
         return PARSE_SUCCESS;
     }
 
     ret = regexec(&content_type, raw, 0, NULL, 0);
     if (ret == 0) {
+        //printf("DEBUG: content-type header\n");
         // Content-Type tells something about the body.
         // Impossible in a request.
         return PARSE_BAD_REQ;
@@ -185,6 +185,7 @@ static int parse_header(char* raw, headers_t* out) {
 
     ret = regexec(&content_length, raw, 0, NULL, 0);
     if (ret == 0) {
+        //printf("DEBUG: content-len header\n");
         // Content-Length tells something about the body.
         // Impossible in a request.
         return PARSE_BAD_REQ;
@@ -192,6 +193,7 @@ static int parse_header(char* raw, headers_t* out) {
 
     ret = regexec(&server, raw, 0, NULL, 0);
     if (ret == 0) {
+        //printf("DEBUG: server header\n");
         if (out->checked_header[H_SERVER])
             return PARSE_BAD_REQ; // Double header
         out->checked_header[H_SERVER] = true;
