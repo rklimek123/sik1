@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include "file.h"
 #include "http.h"
 
 #define BUFFER_SIZE 4096
@@ -95,7 +96,7 @@ int main (int argc, char *argv[]) {
                 }
 
                 // Searching for the end of headers -> CR LF CR LF
-                request_end = strstr(buffer, headers_end); // Search for CRLF
+                request_end = strstr(buffer, headers_end);
                 read_loc += ret;
                 remaining_buffer_size -= ret;
                 if (request_end != NULL)
@@ -127,22 +128,71 @@ int main (int argc, char *argv[]) {
             
             ret = parse_http_request(buffer, &http_request);
             if (ret == PARSE_BAD_REQ) {
+                printf("DEBUG parsed bad req\n");
                 //send_bad_request(rcv);
                 break;
             }
             if (ret == PARSE_INTERNAL_ERR) {
+                printf("DEBUG parsed internal\n");
                 //send_internal_server_error(rcv);
                 break;
             }
 
             if (http_request.starting.method == M_OTHER) {
+                printf("DEBUG parsed other method\n");
                 //send_not_implemented(rcv);
                 // todo
                 continue;
             }
 
-            // ↓↓↓todo↓↓↓ metody get i head / tutaj głównie próba odczytu z pliku
+            if (http_request.starting.target_type == F_INCORRECT) {
+                printf("DEBUG parsed incorrect chars in filename\n");
+                // send_not_found(rcv);
+                // todo
+                continue;
+            }
+
+            // We know, that the method requested is either GET or HEAD.
+            // Both need to verify file access.
             
+            FILE* fptr;
+            ret = take_file(filesystem, http_request.starting.target, &fptr);
+            
+            if (ret == FILE_NOT_FOUND) {
+                //send_not_found(rcv); // tutaj też próba wyszukania w serwerach skorelowanych
+                // todo
+                continue;
+            }
+            
+            if (ret == FILE_INTERNAL_ERR) {
+                //send_internal_server_error(rcv);
+                break;
+            }
+
+            size_t filesize;
+            ret = take_filesize(fptr, &filesize);
+            if (ret == FILE_INTERNAL_ERR) {
+                //send_internal_server_error(rcv);
+                break;
+            }
+
+            char* filecontent;
+            if (http_request.starting.method == M_GET) {
+                ret = take_filecontent(fptr, filesize, &filecontent);
+                if (ret == FILE_INTERNAL_ERR) {
+                    //send_internal_server_error(rcv);
+                    break;
+                }
+
+                printf("DEBUG: get ok\n");
+                // send_get_success(rcv);
+            }
+            else { /* if (http_request.starting.method == M_HEAD) { */
+                printf("DEBUG: head ok\n");
+                // send_head_success(rcv);
+            }
+                
+
             // Preparing buffer for another communicate
             exit(1);
         }

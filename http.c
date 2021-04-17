@@ -14,7 +14,7 @@ static regex_t server;
 
 // Returns 0 on a success
 static int compile_regexes() {
-    if (regcomp(&starting_line, "^[^\\s]+ \\/[^\\s]* HTTP\\/1\\.1$", REG_NOSUB) == -1) {
+    if (regcomp(&starting_line, "^[^\\s]+ \\/[^\\s]* HTTP\\/1\\.1$", 0) == -1) {
         printf("DEBUG: 1st\n");
         return -1;
     }
@@ -48,10 +48,8 @@ int parse_http_request(char* raw, request_t* out) {
     int ret;
 
     if (!regex_compiled) {
-        printf("DEBUG: need to compile regexes\n");
         regex_compiled = true;
         if (compile_regexes() != 0) return PARSE_INTERNAL_ERR;
-        printf("DEBUG: compiled regexes\n");
     }
 
     size_t len = strlen(raw);
@@ -80,25 +78,32 @@ int parse_http_request(char* raw, request_t* out) {
 
 static int parse_starting_line(char* raw, starting_t* out) {
     int ret;
+    printf("DEBUG starting line: \"%s\"\n", raw);
+
+    char* target = raw;
+    while(*target != '\0') {
+        printf("%c\n", *(target++));
+    }
+
     ret = regexec(&starting_line, raw, 0, NULL, 0);
     if (ret == REG_NOMATCH)
         return PARSE_BAD_REQ;
-    //printf("DEBUG: found starting line\n");
+    printf("DEBUG: found starting line\n");
 
     // Method
     char* found = strstr(raw, "GET");
     if (found != raw) {
         found = strstr(raw, "HEAD");
         if (found != raw) {
-            //printf("DEBUG: method OTHER\n");
+            printf("DEBUG: method OTHER\n");
             out->method = M_OTHER;
             return PARSE_SUCCESS;
         }
-        //printf("DEBUG: method HEAD\n");
+        printf("DEBUG: method HEAD\n");
         out->method = M_HEAD;
     }
     else {
-        //printf("DEBUG: method GET\n");
+        printf("DEBUG: method GET\n");
         out->method = M_GET;
     }
 
@@ -114,15 +119,15 @@ static int parse_starting_line(char* raw, starting_t* out) {
     *target_file_end = '\0';
 
     out->target = target_file;
-    //printf("DEBUG: target_file: %s\n", target_file);
+    printf("DEBUG: target_file: %s\n", target_file);
 
     ret = regexec(&verify_target_file, target_file, 0, NULL, 0);
     if (ret == REG_NOMATCH) {
-        //printf("DEBUG: Illegal characters in filename\n");
+        printf("DEBUG: Illegal characters in filename\n");
         out->target_type = F_INCORRECT;
     }
     else {
-        //printf("DEBUG: Filename legal\n");
+        printf("DEBUG: Filename legal\n");
         out->target_type = F_OK;
     }
 
@@ -167,7 +172,7 @@ static int parse_header(char* raw, headers_t* out) {
         out->checked_header[H_CONNECTION] = true;
 
         ret = regexec(&connection_close, raw, 0, NULL, 0);
-        out->con_close == (ret == REG_NOMATCH);
+        out->con_close = (ret == REG_NOMATCH);
         return PARSE_SUCCESS;
     }
 
