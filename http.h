@@ -91,5 +91,6 @@ void parse_http_clean();
 #define SEND_ERROR -1
 #define SEND_OK     0
 int send_internal_server_error(int target);
+int send_bad_request(int target);
 
 #endif /* HTTP_H */

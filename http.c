@@ -206,3 +206,9 @@ int send_internal_server_error(int target) {
     static size_t err_msg_size = 56;
     return send_msg(target, err_msg, err_msg_size);
 }
+
+int send_bad_request(int target) {
+    static const char* err_msg = "HTTP/1.1 400 Bad Request\r\nConnection:close\r\n\r\n";
+    static size_t err_msg_size = 46;
+    return send_msg(target, err_msg, err_msg_size);
+}

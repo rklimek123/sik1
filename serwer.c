@@ -154,7 +154,7 @@ int main (int argc, char *argv[]) {
             
             ret = parse_http_request(buffer, &http_request);
             if (ret == PARSE_BAD_REQ) {
-                //send_bad_request(rcv);
+                send_bad_request(rcv);
                 break;
             }
             if (ret == PARSE_INTERNAL_ERR) {
