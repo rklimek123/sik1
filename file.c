@@ -41,8 +41,6 @@ int take_file(const char* filesystem, char* filename, FILE** out_fptr) {
     char* concat = malloc(concat_len + 1);
     if (!concat) return FILE_INTERNAL_ERR;
 
-    concat[concat_len] = '\0';
-    
     if (strcpy(concat, filesystem) == NULL) {
         free(concat);
         return FILE_INTERNAL_ERR;
@@ -51,7 +49,7 @@ int take_file(const char* filesystem, char* filename, FILE** out_fptr) {
         free(concat);
         return FILE_INTERNAL_ERR;
     }
-    
+
     struct stat file_stat;
     stat(concat, &file_stat);
     if (!S_ISREG(file_stat.st_mode)) {

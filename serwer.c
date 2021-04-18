@@ -19,7 +19,7 @@ void syserr() {
 ///// BUFFER /////
 // 0 - success, -1 - internal server error
 int adjust_buffer_state(char** buffer, size_t* buffer_size, size_t* remaining_buffer_size, char** read_loc, char* request_end) {
-    char* new_request = request_end + 2;
+    char* new_request = request_end + 4;
     size_t new_request_size = *buffer_size - *remaining_buffer_size;
 
     size_t new_buffer_size = BUFFER_SIZE;
@@ -30,8 +30,21 @@ int adjust_buffer_state(char** buffer, size_t* buffer_size, size_t* remaining_bu
     char* new_buffer = malloc(new_buffer_size + 1);
     if (!new_buffer) {
         return -1;
+    }/*
+    for (int i = 0; i < *buffer_size; ++i) {
+        char c = *(*buffer + i);
+        if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == ' ')
+            printf("%c", c);
+        else printf("(%d)", c);
     }
-    
+    printf("\nnow, the rest buffer\n");
+    for (int i = 0; i < *remaining_buffer_size; ++i) {
+        char c = *(new_request + i);
+        if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == ' ')
+            printf("%c", c);
+        else printf("(%d)", c);
+    }
+    printf("\nnow the new buffer\n");*/
     if (strcpy(new_buffer, new_request) == NULL) {
         free(new_buffer);
         return -1;
@@ -44,7 +57,14 @@ int adjust_buffer_state(char** buffer, size_t* buffer_size, size_t* remaining_bu
     *buffer_size = new_buffer_size;
     *remaining_buffer_size = new_buffer_size - new_request_size;
     *read_loc = *buffer + new_request_size;
-
+/*
+    for (int i = 0; i < *buffer_size; ++i) {
+        char c = *(*buffer + i);
+        if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == ' ')
+            printf("%c", c);
+        else printf("(%d)", c);
+    }
+    printf("\n");*/
     return 0;
 }
 
@@ -114,38 +134,46 @@ int main (int argc, char *argv[]) {
         for (;;) {
             int ret;
             
-            // We are trying to read the whole request (preferably without a potential body)
-            while (true)
-            {
-                ret = read(rcv, read_loc, remaining_buffer_size);
-                if (ret == -1) {
-                    send_internal_server_error(rcv);
-                    break;
-                }
-
-                // Searching for the end of headers -> CR LF CR LF
-                request_end = strstr(buffer, headers_end);
-                read_loc += ret;
-                remaining_buffer_size -= ret;
-                if (request_end != NULL)
-                    break;
-
-                if (remaining_buffer_size == 0) {
-                    remaining_buffer_size = buffer_size;
-                    buffer_size *= 2;
-                    char* buf = malloc(buffer_size + 1);
-
-                    if (!buf) {
+            // Check if any full HTTP request isn't already in the buffer.
+            request_end = strstr(buffer, headers_end);
+            if (request_end == NULL) {
+                // We are trying to read the whole request (not counting the body, which shouldn't be here).
+                bool is_err = false;
+                while (true)
+                {
+                    ret = read(rcv, read_loc, remaining_buffer_size);
+                    if (ret == -1) {
                         send_internal_server_error(rcv);
+                        is_err = true;
                         break;
                     }
 
-                    strcpy(buf, buffer);
-                    memset(buf + remaining_buffer_size, 0, remaining_buffer_size + 1);
-                    read_loc = buf + remaining_buffer_size;
-                    free(buffer);
-                    buffer = buf;
+                    // Searching for the end of headers -> CR LF CR LF
+                    request_end = strstr(buffer, headers_end);
+                    read_loc += ret;
+                    remaining_buffer_size -= ret;
+                    if (request_end != NULL)
+                        break;
+
+                    if (remaining_buffer_size == 0) {
+                        remaining_buffer_size = buffer_size;
+                        buffer_size *= 2;
+                        char* buf = malloc(buffer_size + 1);
+
+                        if (!buf) {
+                            send_internal_server_error(rcv);
+                            is_err = true;
+                            break;
+                        }
+
+                        strcpy(buf, buffer);
+                        memset(buf + remaining_buffer_size, 0, remaining_buffer_size + 1);
+                        read_loc = buf + remaining_buffer_size;
+                        free(buffer);
+                        buffer = buf;
+                    }
                 }
+                if (is_err) break;
             }
 
             // Parsing the request
@@ -275,6 +303,7 @@ int main (int argc, char *argv[]) {
                 send_internal_server_error(rcv);
                 break;
             }
+            printf("to second iter we go\n");
         }
 
         free(buffer);
