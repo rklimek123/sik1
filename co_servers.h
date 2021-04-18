@@ -1,6 +1,10 @@
 #ifndef CO_SERVERS_H
 #define CO_SERVERS_H
 
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
 #define COS_INTERNAL_ERR -1
 #define COS_FOUND 0
 #define COS_NOT_FOUND 1

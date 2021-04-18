@@ -1,2 +1,2 @@
 /cocolino	8.8.8.8	8080
-/koko/jumbo/mr_president.jojo	2.13.7.192	8021
+/koko/jumbo/mr-president.jojo	2.13.7.192	8021

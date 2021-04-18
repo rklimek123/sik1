@@ -16,8 +16,7 @@ static bool verify_file_contained_in_root(const char* filename) {
                         // When it is less than 0, that means we are outside root.
     
     const char* current_dir = filename + 1;
-    while (*current_dir != '\0') {
-
+    while (current_dir != NULL && *current_dir != '\0') {
         if (*current_dir == '.') {
 
             if (*(current_dir + 1) == '.' && *(current_dir + 2) == '/') {
@@ -32,7 +31,8 @@ static bool verify_file_contained_in_root(const char* filename) {
         else if (*current_dir != '/') {
             ++depth;
         }
-        ++current_dir;
+        current_dir = strchr(current_dir, '/');
+        if (current_dir != NULL) ++current_dir;
     }
 
     return true;

@@ -12,7 +12,7 @@
 #define FILE_INTERNAL_ERR -1
 #define FILE_OK 0
 #define FILE_NOT_FOUND 1
-#define FILE_REACHOUT 1
+#define FILE_REACHOUT 2
 
 // Checks whether a file in filepath exists and is a file.
 int is_file(const char* filepath);
