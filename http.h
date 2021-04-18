@@ -90,6 +90,8 @@ void parse_http_clean();
 // Send returns
 #define SEND_ERROR -1
 #define SEND_OK     0
+
+int send_success(int target, request_t* response);
 int send_bad_request(int target);
 int send_not_found(int target);
 int send_internal_server_error(int target);

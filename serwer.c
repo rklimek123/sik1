@@ -30,21 +30,7 @@ int adjust_buffer_state(char** buffer, size_t* buffer_size, size_t* remaining_bu
     char* new_buffer = malloc(new_buffer_size + 1);
     if (!new_buffer) {
         return -1;
-    }/*
-    for (int i = 0; i < *buffer_size; ++i) {
-        char c = *(*buffer + i);
-        if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == ' ')
-            printf("%c", c);
-        else printf("(%d)", c);
     }
-    printf("\nnow, the rest buffer\n");
-    for (int i = 0; i < *remaining_buffer_size; ++i) {
-        char c = *(new_request + i);
-        if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == ' ')
-            printf("%c", c);
-        else printf("(%d)", c);
-    }
-    printf("\nnow the new buffer\n");*/
     if (strcpy(new_buffer, new_request) == NULL) {
         free(new_buffer);
         return -1;
@@ -57,14 +43,6 @@ int adjust_buffer_state(char** buffer, size_t* buffer_size, size_t* remaining_bu
     *buffer_size = new_buffer_size;
     *remaining_buffer_size = new_buffer_size - new_request_size;
     *read_loc = *buffer + new_request_size;
-/*
-    for (int i = 0; i < *buffer_size; ++i) {
-        char c = *(*buffer + i);
-        if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == ' ')
-            printf("%c", c);
-        else printf("(%d)", c);
-    }
-    printf("\n");*/
     return 0;
 }
 
@@ -267,33 +245,37 @@ int main (int argc, char *argv[]) {
                 }
             }
 
-            size_t filesize;
-            ret = take_filesize(fptr, &filesize);
+            ret = take_filesize(fptr, &http_request.headers.content_len);
             if (ret == FILE_INTERNAL_ERR) {
+                fclose(fptr);
                 send_internal_server_error(rcv);
                 break;
             }
 
-            char* filecontent;
+            http_request.headers.content_type = "application/octet-stream";
             if (http_request.starting.method == M_GET) {
-                ret = take_filecontent(fptr, filesize, &filecontent);
+                ret = take_filecontent(fptr, http_request.headers.content_len, &http_request.body);
                 fclose(fptr);
                 if (ret == FILE_INTERNAL_ERR) {
                     send_internal_server_error(rcv);
                     break;
                 }
 
-                printf("DEBUG: get ok\n\tfilename: %s\n\tfilesize: %lu\n\tfilecontent: %s\n",
-                    http_request.starting.target, filesize, filecontent);
-                // send_get_success(rcv);
-                // todo
-                free(filecontent);
+                if (send_success(rcv, &http_request) == SEND_ERROR) {
+                    free(http_request.body);
+                    send_internal_server_error(rcv);
+                    break;
+                }
+                free(http_request.body);
             }
             else { /* if (http_request.starting.method == M_HEAD) { */
                 fclose(fptr);
-                printf("DEBUG: HEAD ok\n\tfilename: %s\n\tfilesize: %lu\n\tfilecontent: %s\n",
-                    http_request.starting.target, filesize, filecontent);
-                // send_head_success(rcv);
+                http_request.body = NULL;
+                
+                if (send_success(rcv, &http_request) == SEND_ERROR) {
+                    send_internal_server_error(rcv);
+                    break;
+                }
             }
 
             if (http_request.headers.con_close) break;
@@ -303,7 +285,6 @@ int main (int argc, char *argv[]) {
                 send_internal_server_error(rcv);
                 break;
             }
-            printf("to second iter we go\n");
         }
 
         free(buffer);

@@ -50,7 +50,6 @@ int parse_http_request(char* raw, request_t* out) {
         if (compile_regexes() != 0) return PARSE_INTERNAL_ERR;
     }
 
-    size_t len = strlen(raw);
     // Get the starting line
     char* headers = strchr(raw, '\r');
     if (!headers) {
@@ -203,6 +202,119 @@ static int send_msg(int target, const char* message, size_t msg_size) {
 //debug
 #include <stdio.h>
 
+int send_success(int target, request_t* response) {
+    static const char* base_msg = "HTTP/1.1 200 OK\r\n";
+    static size_t base_msg_size = 17;
+
+    /// Content-Type header ///
+    // strlen("Content-Type:") = 13, strlen("\r\n") = 2
+    size_t content_type_size = 13 + strlen(response->headers.content_type) + 2;
+    char* content_type = malloc(content_type_size + 1);
+    if (!content_type) {
+        return SEND_ERROR;
+    }
+
+    if (strcpy(content_type, "Content-Type:") == NULL) {
+        free(content_type);
+        return SEND_ERROR;
+    }
+    if (strcpy(content_type + 13, response->headers.content_type) == NULL) {
+        free(content_type);
+        return SEND_ERROR;
+    }
+    content_type[content_type_size - 2] = '\r';
+    content_type[content_type_size - 1] = '\n';
+
+    /// Content-Length header with additional CRLF ///
+    char* content_len = malloc(21);  // maximum size_t is less than 2*10^20
+    if (!content_len) {
+        free(content_type);
+        return SEND_ERROR;
+    }
+    int content_len_size = snprintf(content_len, 20, "%lu", response->headers.content_len);
+    if (content_len_size < 0) {
+        free(content_len);
+        free(content_type);
+        return SEND_ERROR;
+    }
+
+    // strlen("Content-Length:") = 15, strlen("\r\n\r\n") = 4
+    size_t content_lenh_size = 15 + content_len_size + 4;
+    char* content_lenh = malloc(content_lenh_size + 1);
+    if (!content_len) {
+        free(content_len);
+        free(content_type);
+        return SEND_ERROR;
+    }
+    if (strcpy(content_lenh, "Content-Length:") == NULL) {
+        free(content_lenh);
+        free(content_len);
+        free(content_type);
+        return SEND_ERROR;
+    }
+    if (strcpy(content_lenh + 15, content_len) == NULL) {
+        free(content_lenh);
+        free(content_len);
+        free(content_type);
+        return SEND_ERROR;
+    } free(content_len);
+    content_lenh[content_lenh_size - 4] = '\r';
+    content_lenh[content_lenh_size - 3] = '\n';
+    content_lenh[content_lenh_size - 2] = '\r';
+    content_lenh[content_lenh_size - 1] = '\n';
+
+    /// Concatenate all parts ///
+    size_t result_size = base_msg_size + content_type_size + content_lenh_size;
+    char* result = malloc(result_size + 1);
+    if (!result) {
+        free(content_lenh);
+        free(content_type);
+        return SEND_ERROR;
+    }
+    if (strcpy(result, base_msg) == NULL) {
+        free(result);
+        free(content_lenh);
+        free(content_type);
+        return SEND_ERROR;
+    }
+    if (strcpy(result + base_msg_size, content_type) == NULL) {
+        free(result);
+        free(content_lenh);
+        free(content_type);
+        return SEND_ERROR;
+    } free(content_type);
+    if (strcpy(result + base_msg_size + content_type_size, content_lenh) == NULL) {
+        free(result);
+        free(content_lenh);
+        free(content_type);
+        return SEND_ERROR;
+    } free(content_lenh);
+
+    if (response->body != NULL) {
+        char* heading = result;
+        size_t heading_size = result_size;
+        result_size = heading_size + response->headers.content_len;
+        result = malloc(result_size + 1);
+        if (!result) {
+            free(heading);
+            return SEND_ERROR;
+        }
+        if (strcpy(result, heading) == NULL) {
+            free(result);
+            free(heading);
+            return SEND_ERROR;
+        } free(heading);
+        if (strcpy(result + heading_size, response->body) == NULL) {
+            free(result);
+            return SEND_ERROR;
+        }
+    }
+    
+    send_msg(target, result, result_size);
+    free(result);
+    return SEND_OK;
+}
+
 int send_bad_request(int target) {
     static const char* err_msg = "HTTP/1.1 400 Bad Request\r\nConnection:close\r\n\r\n";
     static size_t err_msg_size = 46;
@@ -212,7 +324,6 @@ int send_bad_request(int target) {
 int send_not_found(int target) {
     static const char* err_msg = "HTTP/1.1 404 Not Found\r\n\r\n";
     static size_t err_msg_size = 26;
-    if (err_msg_size != strlen(err_msg)) printf("seppuku");
     return send_msg(target, err_msg, err_msg_size);
 }
 
