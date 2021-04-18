@@ -154,9 +154,10 @@ int main (int argc, char *argv[]) {
 
             // We know, that the method requested is either GET or HEAD.
             // Both need to verify file access.
-            
+            printf("DEBUG: taking the file %s\n", http_request.starting.target);
             FILE* fptr;
             ret = take_file(filesystem, http_request.starting.target, &fptr);
+            printf("DEBUG: took the file %s\n", http_request.starting.target);
             
             if (ret == FILE_NOT_FOUND) {
                 //send_not_found(rcv); // tutaj też próba wyszukania w serwerach skorelowanych
@@ -168,6 +169,7 @@ int main (int argc, char *argv[]) {
                 //send_internal_server_error(rcv);
                 break;
             }
+            printf("DEBUG: took the file\n");
 
             size_t filesize;
             ret = take_filesize(fptr, &filesize);
@@ -184,16 +186,20 @@ int main (int argc, char *argv[]) {
                     break;
                 }
 
-                printf("DEBUG: get ok\n");
+                printf("DEBUG: get ok\n\tfilename: %s\n\tfilesize: %lu\n\tfilecontent: %s\n",
+                    http_request.starting.target, filesize, filecontent);
                 // send_get_success(rcv);
             }
             else { /* if (http_request.starting.method == M_HEAD) { */
-                printf("DEBUG: head ok\n");
+                printf("DEBUG: HEAD ok\n\tfilename: %s\n\tfilesize: %lu\n\tfilecontent: %s\n",
+                    http_request.starting.target, filesize, filecontent);
                 // send_head_success(rcv);
             }
-                
 
             // Preparing buffer for another communicate
+            //char* new_request = request_end + 2;
+
+
             exit(1);
         }
 

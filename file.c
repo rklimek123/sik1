@@ -23,6 +23,7 @@ static bool verify_file_contained_in_root(const char* filename) {
         else if (*current_dir != '/') {
             ++depth;
         }
+        ++current_dir;
     }
 
     return true;
@@ -33,8 +34,21 @@ int take_file(const char* filesystem, char* filename, FILE** out_fptr) {
     if (!verify_file_contained_in_root(filename))
         return FILE_NOT_FOUND;
     
-    char* concat = malloc(strlen(filesystem) + strlen(filename) + 1);
-    concat[strlen(filesystem) + strlen(filename)] = '\0';
+    size_t filesystem_len = strlen(filesystem);
+    size_t filename_len = strlen(filename);
+    size_t concat_len = filesystem_len + filename_len;
+
+    char* concat = malloc(concat_len + 1);
+    if (!concat) return FILE_INTERNAL_ERR;
+
+    concat[concat_len] = '\0';
+    
+    if (strcpy(concat, filesystem) == NULL)
+        return FILE_INTERNAL_ERR;
+    if (strcpy(concat + filesystem_len, filename) == NULL)
+        return FILE_INTERNAL_ERR;
+
+    //printf("DEBUG: will get file from dir: %s\n", concat);
     *out_fptr = fopen(concat, "r");
     free(concat);
 
