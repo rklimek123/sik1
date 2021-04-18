@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
+#include <unistd.h>
 
 ///// Methods /////
 #define M_OTHER 0
@@ -85,5 +86,10 @@ int parse_http_request(char* raw, request_t* out);
 
 // Frees the library data, eg. regexes
 void parse_http_clean();
+
+// Send returns
+#define SEND_ERROR -1
+#define SEND_OK     0
+int send_internal_server_error(int target);
 
 #endif /* HTTP_H */

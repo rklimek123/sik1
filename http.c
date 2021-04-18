@@ -1,7 +1,6 @@
 #include "http.h"
-// debug
-#include <stdio.h>
 
+///// Parsing /////
 static regex_t starting_line;
 static regex_t verify_target_file;
 
@@ -14,26 +13,25 @@ static regex_t server;
 
 // Returns 0 on a success
 static int compile_regexes() {
-    if (regcomp(&starting_line, "^[^ \t\n\r\f\v]+ \\/[^ \t\n\r\f\v]* HTTP\\/1\\.1$", REG_EXTENDED | REG_NOSUB) == -1) {
-        printf("DEBUG: 1st\n");
-        return -1;
-    }
-    if (regcomp(&verify_target_file, "^\\/[a-zA-Z0-9\\.\\-\\/]*$", REG_EXTENDED | REG_NOSUB) == -1) {
-        printf("DEBUG: 4th\n");
-        return -1;
-    }
+    int flags = REG_EXTENDED | REG_NOSUB;
+    int flags_icase = flags | REG_ICASE;
 
-    if (regcomp(&header, "^[^ \t\n\r\f\v:]+:[ ]*.+[ ]*$", REG_EXTENDED | REG_NOSUB) == -1)
+    if (regcomp(&starting_line, "^[^ \t\n\r\f\v]+ \\/[^ \t\n\r\f\v]* HTTP\\/1\\.1$", flags) == -1)
         return -1;
-    if (regcomp(&connection, "^Connection:", REG_EXTENDED | REG_NOSUB | REG_ICASE) == -1)
+    if (regcomp(&verify_target_file, "^\\/[a-zA-Z0-9\\.\\-\\/]*$", flags) == -1)
         return -1;
-    if (regcomp(&connection_close, "^[^ \t\n\r\f\v]+:[ ]*close[ ]*$", REG_EXTENDED | REG_NOSUB) == -1)
+
+    if (regcomp(&header, "^[^ \t\n\r\f\v:]+:[ ]*.+[ ]*$", flags) == -1)
         return -1;
-    if (regcomp(&content_type, "^Content-Type:", REG_EXTENDED | REG_NOSUB | REG_ICASE) == -1)
+    if (regcomp(&connection, "^Connection:", flags_icase) == -1)
         return -1;
-    if (regcomp(&content_length, "^Content-Length:", REG_EXTENDED | REG_NOSUB | REG_ICASE) == -1)
+    if (regcomp(&connection_close, "^[^ \t\n\r\f\v]+:[ ]*close[ ]*$", flags) == -1)
         return -1;
-    if (regcomp(&server, "^Server:", REG_EXTENDED | REG_NOSUB | REG_ICASE) == -1)
+    if (regcomp(&content_type, "^Content-Type:", flags_icase) == -1)
+        return -1;
+    if (regcomp(&content_length, "^Content-Length:", flags_icase) == -1)
+        return -1;
+    if (regcomp(&server, "^Server:", flags_icase) == -1)
         return -1;
     
     return 0;
@@ -56,7 +54,6 @@ int parse_http_request(char* raw, request_t* out) {
     // Get the starting line
     char* headers = strchr(raw, '\r');
     if (!headers) {
-        //printf("DEBUG: headers\n");
         return PARSE_INTERNAL_ERR;  // At least one '\r' should exist.
                                     // A proper HTTP label ends with CRLF'\0' (before the body).
     }
@@ -67,38 +64,31 @@ int parse_http_request(char* raw, request_t* out) {
     ret = parse_starting_line(raw, &(out->starting));
     if (ret == PARSE_BAD_REQ || ret == PARSE_INTERNAL_ERR)
         return ret;
-    printf("DEBUG: successfully parsed starting line\n");
     
     ret = parse_headers(headers, &(out->headers));
     if (ret == PARSE_BAD_REQ || ret == PARSE_INTERNAL_ERR)
         return ret;
-    printf("DEBUG: successfully parsed headers\n");
     return PARSE_SUCCESS;
 }
 
 static int parse_starting_line(char* raw, starting_t* out) {
     int ret;
-    //printf("DEBUG starting line: \"%s\"\n", raw);
 
     ret = regexec(&starting_line, raw, 0, NULL, 0);
     if (ret == REG_NOMATCH)
         return PARSE_BAD_REQ;
-    //printf("DEBUG: found starting line\n");
 
     // Method
     char* found = strstr(raw, "GET");
     if (found != raw) {
         found = strstr(raw, "HEAD");
         if (found != raw) {
-            //printf("DEBUG: method OTHER\n");
             out->method = M_OTHER;
             return PARSE_SUCCESS;
         }
-        //printf("DEBUG: method HEAD\n");
         out->method = M_HEAD;
     }
     else {
-        //printf("DEBUG: method GET\n");
         out->method = M_GET;
     }
 
@@ -114,24 +104,17 @@ static int parse_starting_line(char* raw, starting_t* out) {
     *target_file_end = '\0';
 
     out->target = target_file;
-    //printf("DEBUG: target_file: %s\n", target_file);
 
     ret = regexec(&verify_target_file, target_file, 0, NULL, 0);
-    if (ret == REG_NOMATCH) {
-        //printf("DEBUG: Illegal characters in filename\n");
+    if (ret == REG_NOMATCH)
         out->target_type = F_INCORRECT;
-    }
-    else {
-        //printf("DEBUG: Filename legal\n");
+    else
         out->target_type = F_OK;
-    }
 
     return PARSE_SUCCESS;
 }
 
 static int parse_headers(char* raw, headers_t* out) {
-    //printf("DEBUG: headers: %s\n", raw);
-    
     out->checked_header[H_CONNECTION] = false;
     out->checked_header[H_CONTENT_LENGTH] = false;
     out->checked_header[H_CONTENT_TYPE] = false;
@@ -156,28 +139,23 @@ static int parse_headers(char* raw, headers_t* out) {
 }
 
 static int parse_header(char* raw, headers_t* out) {
-    //printf("DEBUG parsing header \"%s\"\n", raw);
     int ret = regexec(&header, raw, 0, NULL, 0);
     if (ret == REG_NOMATCH)
         return PARSE_BAD_REQ;
-    //printf("DEBUG: indeed a header\n");
     
     ret = regexec(&connection, raw, 0, NULL, 0);
     if (ret == 0) {
-        //printf("DEBUG: connection header\n");
         if (out->checked_header[H_CONNECTION])
             return PARSE_BAD_REQ; // Double header
         out->checked_header[H_CONNECTION] = true;
 
         ret = regexec(&connection_close, raw, 0, NULL, 0);
         out->con_close = (ret == 0);
-        //printf("DEBUG closing? %d\n", ret == 0);
         return PARSE_SUCCESS;
     }
 
     ret = regexec(&content_type, raw, 0, NULL, 0);
     if (ret == 0) {
-        //printf("DEBUG: content-type header\n");
         // Content-Type tells something about the body.
         // Impossible in a request.
         return PARSE_BAD_REQ;
@@ -185,7 +163,6 @@ static int parse_header(char* raw, headers_t* out) {
 
     ret = regexec(&content_length, raw, 0, NULL, 0);
     if (ret == 0) {
-        //printf("DEBUG: content-len header\n");
         // Content-Length tells something about the body.
         // Impossible in a request.
         return PARSE_BAD_REQ;
@@ -193,7 +170,6 @@ static int parse_header(char* raw, headers_t* out) {
 
     ret = regexec(&server, raw, 0, NULL, 0);
     if (ret == 0) {
-        //printf("DEBUG: server header\n");
         if (out->checked_header[H_SERVER])
             return PARSE_BAD_REQ; // Double header
         out->checked_header[H_SERVER] = true;
@@ -214,4 +190,19 @@ void parse_http_clean() {
     regfree(&content_type);
     regfree(&content_length);
     regfree(&server);
+}
+
+///// Sending /////
+static int send_msg(int target, const char* message, size_t msg_size) {
+    if (write(target, message, msg_size) != msg_size)
+        return SEND_ERROR;
+    return SEND_OK;
+}
+
+//debug
+#include <stdio.h>
+int send_internal_server_error(int target) {
+    static const char* err_msg = "HTTP/1.1 500 Internal Server Error\r\nConnection:close\r\n\r\n";
+    static size_t err_msg_size = 56;
+    return send_msg(target, err_msg, err_msg_size);
 }

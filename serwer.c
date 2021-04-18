@@ -120,8 +120,7 @@ int main (int argc, char *argv[]) {
             {
                 ret = read(rcv, read_loc, remaining_buffer_size);
                 if (ret == -1) {
-                    // send internal server error
-                    //todo
+                    send_internal_server_error(rcv);
                     break;
                 }
 
@@ -138,8 +137,7 @@ int main (int argc, char *argv[]) {
                     char* buf = malloc(buffer_size + 1);
 
                     if (!buf) {
-                        //send_internal_error(rcv);
-                        // todo
+                        send_internal_server_error(rcv);
                         break;
                     }
 
@@ -160,7 +158,7 @@ int main (int argc, char *argv[]) {
                 break;
             }
             if (ret == PARSE_INTERNAL_ERR) {
-                //send_internal_server_error(rcv);
+                send_internal_server_error(rcv);
                 break;
             }
 
@@ -168,7 +166,10 @@ int main (int argc, char *argv[]) {
                 //send_not_implemented(rcv);
                 // todo
                 if (http_request.headers.con_close) break;
-                adjust_buffer_state(&buffer, &buffer_size, &remaining_buffer_size, &read_loc, request_end);
+                if (adjust_buffer_state(&buffer, &buffer_size, &remaining_buffer_size, &read_loc, request_end) != 0) {
+                    send_internal_server_error(rcv);
+                    break;
+                }
                 continue;
             }
 
@@ -176,7 +177,10 @@ int main (int argc, char *argv[]) {
                 // send_not_found(rcv);
                 // todo
                 if (http_request.headers.con_close) break;
-                adjust_buffer_state(&buffer, &buffer_size, &remaining_buffer_size, &read_loc, request_end);
+                if (adjust_buffer_state(&buffer, &buffer_size, &remaining_buffer_size, &read_loc, request_end) != 0) {
+                    send_internal_server_error(rcv);
+                    break;
+                }
                 continue;
             }
 
@@ -191,7 +195,10 @@ int main (int argc, char *argv[]) {
                     //send_not_found(rcv);
                     // todo
                     if (http_request.headers.con_close) break;
-                    adjust_buffer_state(&buffer, &buffer_size, &remaining_buffer_size, &read_loc, request_end);
+                    if (adjust_buffer_state(&buffer, &buffer_size, &remaining_buffer_size, &read_loc, request_end) != 0) {
+                        send_internal_server_error(rcv);
+                        break;
+                    }
                     continue;
                 }
                 else if (ret == FILE_NOT_FOUND) {
@@ -202,7 +209,7 @@ int main (int argc, char *argv[]) {
                     continue;
                 }
                 else if (ret == FILE_INTERNAL_ERR) {
-                    //send_internal_server_error(rcv);
+                    send_internal_server_error(rcv);
                     break;
                 }
             }
@@ -210,8 +217,7 @@ int main (int argc, char *argv[]) {
             size_t filesize;
             ret = take_filesize(fptr, &filesize);
             if (ret == FILE_INTERNAL_ERR) {
-                //send_internal_server_error(rcv);
-                // todo
+                send_internal_server_error(rcv);
                 break;
             }
 
@@ -220,8 +226,7 @@ int main (int argc, char *argv[]) {
                 ret = take_filecontent(fptr, filesize, &filecontent);
                 fclose(fptr);
                 if (ret == FILE_INTERNAL_ERR) {
-                    //send_internal_server_error(rcv);
-                    // todo
+                    send_internal_server_error(rcv);
                     break;
                 }
 
@@ -238,13 +243,11 @@ int main (int argc, char *argv[]) {
                 // send_head_success(rcv);
             }
 
-            if (http_request.headers.con_close)
-                break;
+            if (http_request.headers.con_close) break;
 
             // Preparing buffer for another message
-            ret = adjust_buffer_state(&buffer, &buffer_size, &remaining_buffer_size, &read_loc, request_end);
-            if (ret == -1) {
-                //send_internal_server_error(rcv);
+            if (adjust_buffer_state(&buffer, &buffer_size, &remaining_buffer_size, &read_loc, request_end) != 0) {
+                send_internal_server_error(rcv);
                 break;
             }
         }
@@ -254,4 +257,5 @@ int main (int argc, char *argv[]) {
     }
 
     close(sock);
+    parse_http_clean();
 }
