@@ -18,7 +18,7 @@ static int compile_regexes() {
 
     if (regcomp(&starting_line, "^[^ \t\n\r\f\v]+ \\/[^ \t\n\r\f\v]* HTTP\\/1\\.1$", flags) == -1)
         return -1;
-    if (regcomp(&verify_target_file, "^\\/[a-zA-Z0-9\\.\\-\\/]*$", flags) == -1)
+    if (regcomp(&verify_target_file, "^\\/[a-zA-Z0-9\\.\\/|-]*$", flags) == -1)
         return -1;
 
     if (regcomp(&header, "^[^ \t\n\r\f\v:]+:[ ]*.+[ ]*$", flags) == -1)
@@ -102,14 +102,14 @@ static int parse_starting_line(char* raw, starting_t* out) {
         return PARSE_INTERNAL_ERR;
     *target_file_end = '\0';
 
-    out->target = target_file;printf("target: \"%s\"\n", target_file);
+    out->target = target_file;
 
     ret = regexec(&verify_target_file, target_file, 0, NULL, 0);
     if (ret == REG_NOMATCH)
         out->target_type = F_INCORRECT;
     else
         out->target_type = F_OK;
-if (out->target_type == F_INCORRECT) printf("incorrect\n");
+        
     return PARSE_SUCCESS;
 }
 

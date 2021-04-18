@@ -1,0 +1,34 @@
+<html>
+<head>
+    <link rel="icon" href="../resources/bypass.jpg"/>
+    <title>Burger Familia</title>
+    <meta charset="UTF-8">
+</head>
+<body>
+<!-- Top-right corner panel -->
+<div style="text-align: right;">
+            <p>
+                <a href=\"customer.php?id=$id\">
+                    Przejdź do profilu, ".$user_row['NAME']." ".$user_row['SURNAME']."</a>
+            </p>
+            <p>
+                <a href=\"sign_out.php\">Wyloguj</a>
+            </p>
+</div>
+
+<!-- Hello text -->
+<div style="text-align: center;">
+    <h1> Witaj na stronie burgerowni <i><b style="color: darkred;">Burger Familia</b></i> </h1>
+</div>
+
+<!-- Action ribbon -->
+<div>
+    
+            <a href='home.php'>Strona tytułowa</a> |
+       
+                <a href='menu.php'>Menu</a> | 
+                <a href='cart.php'>Koszyk</a> | 
+                <a href='orders_customer.php'>Zamówienia</a>
+</div>
+</body>
+</html>

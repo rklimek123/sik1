@@ -18,9 +18,18 @@ int search_corelated_servers(const char* lookfilepath, const char* lookfor, char
         return COS_INTERNAL_ERR;
     }
 
-    while (fgets(buffer, buffer_size + 1, lookfile) != NULL) {
-        char* ret = strstr(buffer, lookfor);
+    size_t lookfor_len = strlen(lookfor);
+    char look_for[lookfor_len + 2];
+    if (strcpy(look_for, lookfor) == NULL) {
+        fclose(lookfile);
+        free(buffer);
+        return COS_INTERNAL_ERR;
+    }
+    look_for[lookfor_len] = '\t';
 
+    while (fgets(buffer, buffer_size + 1, lookfile) != NULL) {
+        char* ret = strstr(buffer, look_for);
+        
         if (buffer == ret) {
             fclose(lookfile);
 
