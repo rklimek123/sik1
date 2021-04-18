@@ -114,7 +114,6 @@ int main (int argc, char *argv[]) {
         for (;;) {
             int ret;
             
-            request_t http_request;
             // We are trying to read the whole request (preferably without a potential body)
             while (true)
             {
@@ -150,6 +149,7 @@ int main (int argc, char *argv[]) {
             }
 
             // Parsing the request
+            request_t http_request;
             *(request_end + 2) = '\0';
             
             ret = parse_http_request(buffer, &http_request);
@@ -169,7 +169,6 @@ int main (int argc, char *argv[]) {
                 }
 
                 if (http_request.headers.con_close) break;
-                
                 if (adjust_buffer_state(&buffer, &buffer_size, &remaining_buffer_size, &read_loc, request_end) != 0) {
                     send_internal_server_error(rcv);
                     break;
@@ -178,8 +177,11 @@ int main (int argc, char *argv[]) {
             }
 
             if (http_request.starting.target_type == F_INCORRECT) {
-                // send_not_found(rcv);
-                // todo
+                if (send_not_found(rcv) == SEND_ERROR) {
+                    send_internal_server_error(rcv);
+                    break;
+                }
+
                 if (http_request.headers.con_close) break;
                 if (adjust_buffer_state(&buffer, &buffer_size, &remaining_buffer_size, &read_loc, request_end) != 0) {
                     send_internal_server_error(rcv);
@@ -194,10 +196,12 @@ int main (int argc, char *argv[]) {
             ret = take_file(filesystem, http_request.starting.target, &fptr);
             
             if (ret != FILE_OK) {
-                fclose(fptr);
                 if (ret == FILE_REACHOUT) {
-                    //send_not_found(rcv);
-                    // todo
+                    if (send_not_found(rcv) == SEND_ERROR) {
+                        send_internal_server_error(rcv);
+                        break;
+                    }
+
                     if (http_request.headers.con_close) break;
                     if (adjust_buffer_state(&buffer, &buffer_size, &remaining_buffer_size, &read_loc, request_end) != 0) {
                         send_internal_server_error(rcv);
@@ -206,10 +210,27 @@ int main (int argc, char *argv[]) {
                     continue;
                 }
                 else if (ret == FILE_NOT_FOUND) {
-                    // see in correlated servers
-                    // send_not_found(rcv);
-                    // TODO
+                    /* todo
+                    correlated_response_t res;
+                    if (search_correlated_servers(http_request.starting.target, &res)) {
+                        if (send_found(rcv, &res) == SEND_ERROR) {
+                            send_internal_server_error(rcv);
+                            break;
+                        }
+                    }
+                    else {*/
+                        if (send_not_found(rcv) == SEND_ERROR) {
+                            send_internal_server_error(rcv);
+                            break;
+                        }
+                    //}
+                    
                     if (http_request.headers.con_close) break;
+
+                    if (adjust_buffer_state(&buffer, &buffer_size, &remaining_buffer_size, &read_loc, request_end) != 0) {
+                        send_internal_server_error(rcv);
+                        break;
+                    }
                     continue;
                 }
                 else if (ret == FILE_INTERNAL_ERR) {

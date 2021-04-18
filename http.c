@@ -119,6 +119,7 @@ static int parse_headers(char* raw, headers_t* out) {
     out->checked_header[H_CONTENT_LENGTH] = false;
     out->checked_header[H_CONTENT_TYPE] = false;
     out->checked_header[H_SERVER] = false;
+    out->con_close = false;
 
     while (*raw != '\0') {
         char* next_header = strchr(raw, '\r');
@@ -205,6 +206,13 @@ static int send_msg(int target, const char* message, size_t msg_size) {
 int send_bad_request(int target) {
     static const char* err_msg = "HTTP/1.1 400 Bad Request\r\nConnection:close\r\n\r\n";
     static size_t err_msg_size = 46;
+    return send_msg(target, err_msg, err_msg_size);
+}
+
+int send_not_found(int target) {
+    static const char* err_msg = "HTTP/1.1 404 Not Found\r\n\r\n";
+    static size_t err_msg_size = 26;
+    if (err_msg_size != strlen(err_msg)) printf("seppuku");
     return send_msg(target, err_msg, err_msg_size);
 }
 

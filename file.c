@@ -43,17 +43,27 @@ int take_file(const char* filesystem, char* filename, FILE** out_fptr) {
 
     concat[concat_len] = '\0';
     
-    if (strcpy(concat, filesystem) == NULL)
+    if (strcpy(concat, filesystem) == NULL) {
+        free(concat);
         return FILE_INTERNAL_ERR;
-    if (strcpy(concat + filesystem_len, filename) == NULL)
+    }
+    if (strcpy(concat + filesystem_len, filename) == NULL) {
+        free(concat);
         return FILE_INTERNAL_ERR;
-
-    //printf("DEBUG: will get file from dir: %s\n", concat);
+    }
+    
+    struct stat file_stat;
+    stat(concat, &file_stat);
+    if (!S_ISREG(file_stat.st_mode)) {
+        free(concat);
+        return FILE_NOT_FOUND;
+    }
+    
     *out_fptr = fopen(concat, "r");
     free(concat);
 
     if (!*out_fptr)
-        return FILE_NOT_FOUND;
+        return FILE_INTERNAL_ERR;
     return FILE_OK;
 }
 

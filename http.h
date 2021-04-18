@@ -64,7 +64,7 @@ typedef struct http_request {
 // Returns on of the values listed in "Parse returns".
 // Changes raw internally, then restores it almost to the previous form.
 // The only exception from this which may occur,
-// is that there will be a '\0' char after the target file's name.
+// is that there will be a '\0' put on the character after the target file's name.
 //
 // raw needs to be terminated with a '\0' instead of a CRLF before the body.
 int parse_http_request(char* raw, request_t* out);
@@ -91,6 +91,7 @@ void parse_http_clean();
 #define SEND_ERROR -1
 #define SEND_OK     0
 int send_bad_request(int target);
+int send_not_found(int target);
 int send_internal_server_error(int target);
 int send_not_implemented(int target);
 
