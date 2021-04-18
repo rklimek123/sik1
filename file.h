@@ -11,6 +11,7 @@
 #define FILE_INTERNAL_ERR -1
 #define FILE_OK 0
 #define FILE_NOT_FOUND 1
+#define FILE_REACHOUT 1
 
 // Opens a file named filename into out_fptr ion a readonly mode,
 // treating the directory supplied in filesystem as root.

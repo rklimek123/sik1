@@ -16,7 +16,37 @@
 void syserr() {
     exit(EXIT_FAILURE);
 }
-/////////////////
+///// BUFFER /////
+// 0 - success, -1 - internal server error
+int adjust_buffer_state(char** buffer, size_t* buffer_size, size_t* remaining_buffer_size, char** read_loc, char* request_end) {
+    char* new_request = request_end + 2;
+    size_t new_request_size = *buffer_size - *remaining_buffer_size;
+
+    size_t new_buffer_size = BUFFER_SIZE;
+    while (new_request_size >= new_buffer_size) {
+        new_buffer_size *= 2;
+    }
+
+    char* new_buffer = malloc(new_buffer_size + 1);
+    if (!new_buffer) {
+        return -1;
+    }
+    
+    if (strcpy(new_buffer, new_request) == NULL) {
+        free(new_buffer);
+        return -1;
+    }
+    
+    memset(new_buffer + new_request_size, 0, new_buffer_size - new_request_size + 1);
+    
+    free(*buffer);
+    *buffer = new_buffer;
+    *buffer_size = new_buffer_size;
+    *remaining_buffer_size = new_buffer_size - new_request_size;
+    *read_loc = *buffer + new_request_size;
+
+    return 0;
+}
 
 int main (int argc, char *argv[]) {
     const char headers_end[] = {13, 10, 13, 10, 0};
@@ -30,7 +60,6 @@ int main (int argc, char *argv[]) {
     DIR* root = opendir(filesystem); // Only used to confirm the existence of the target directory.
     if (!root) {
         // Cannot open the directory
-        printf("DEBUG, cannot open directory\n");
         syserr();
     }
         
@@ -40,6 +69,7 @@ int main (int argc, char *argv[]) {
     if (!corelated_servers)
         // Cannot open the corelated servers file
         syserr();
+    fclose(corelated_servers);
 
     short port;
     if (argc == 4)
@@ -59,7 +89,6 @@ int main (int argc, char *argv[]) {
     
     if (bind(sock, (struct sockaddr *)&server, sizeof(server)) == -1) {
         // Socket binding unsuccessful
-        printf("DEBUG - unsuccesfull binding to port %d\n", port);
         syserr();
     }
 
@@ -91,8 +120,9 @@ int main (int argc, char *argv[]) {
             {
                 ret = read(rcv, read_loc, remaining_buffer_size);
                 if (ret == -1) {
-                    exit(1); //todo
-                    // CO TUTAJ MUSZĘ ROBIĆ? chyba to co po send not implemented, ale z send internal server error
+                    // send internal server error
+                    //todo
+                    break;
                 }
 
                 // Searching for the end of headers -> CR LF CR LF
@@ -110,13 +140,11 @@ int main (int argc, char *argv[]) {
                     if (!buf) {
                         //send_internal_error(rcv);
                         // todo
-                        //następnie dotyczaj aż do nowej wiadomosci
-                        exit(1);
+                        break;
                     }
 
-                    memset(buf + remaining_buffer_size, 0, remaining_buffer_size + 1);
-                    
                     strcpy(buf, buffer);
+                    memset(buf + remaining_buffer_size, 0, remaining_buffer_size + 1);
                     read_loc = buf + remaining_buffer_size;
                     free(buffer);
                     buffer = buf;
@@ -128,84 +156,102 @@ int main (int argc, char *argv[]) {
             
             ret = parse_http_request(buffer, &http_request);
             if (ret == PARSE_BAD_REQ) {
-                printf("DEBUG parsed bad req\n");
                 //send_bad_request(rcv);
                 break;
             }
             if (ret == PARSE_INTERNAL_ERR) {
-                printf("DEBUG parsed internal\n");
                 //send_internal_server_error(rcv);
                 break;
             }
 
             if (http_request.starting.method == M_OTHER) {
-                printf("DEBUG parsed other method\n");
                 //send_not_implemented(rcv);
                 // todo
+                if (http_request.headers.con_close) break;
+                adjust_buffer_state(&buffer, &buffer_size, &remaining_buffer_size, &read_loc, request_end);
                 continue;
             }
 
             if (http_request.starting.target_type == F_INCORRECT) {
-                printf("DEBUG parsed incorrect chars in filename\n");
                 // send_not_found(rcv);
                 // todo
+                if (http_request.headers.con_close) break;
+                adjust_buffer_state(&buffer, &buffer_size, &remaining_buffer_size, &read_loc, request_end);
                 continue;
             }
 
             // We know, that the method requested is either GET or HEAD.
             // Both need to verify file access.
-            printf("DEBUG: taking the file %s\n", http_request.starting.target);
             FILE* fptr;
             ret = take_file(filesystem, http_request.starting.target, &fptr);
-            printf("DEBUG: took the file %s\n", http_request.starting.target);
             
-            if (ret == FILE_NOT_FOUND) {
-                //send_not_found(rcv); // tutaj też próba wyszukania w serwerach skorelowanych
-                // todo
-                continue;
+            if (ret != FILE_OK) {
+                fclose(fptr);
+                if (ret == FILE_REACHOUT) {
+                    //send_not_found(rcv);
+                    // todo
+                    if (http_request.headers.con_close) break;
+                    adjust_buffer_state(&buffer, &buffer_size, &remaining_buffer_size, &read_loc, request_end);
+                    continue;
+                }
+                else if (ret == FILE_NOT_FOUND) {
+                    // see in correlated servers
+                    // send_not_found(rcv);
+                    // TODO
+                    if (http_request.headers.con_close) break;
+                    continue;
+                }
+                else if (ret == FILE_INTERNAL_ERR) {
+                    //send_internal_server_error(rcv);
+                    break;
+                }
             }
-            
-            if (ret == FILE_INTERNAL_ERR) {
-                //send_internal_server_error(rcv);
-                break;
-            }
-            printf("DEBUG: took the file\n");
 
             size_t filesize;
             ret = take_filesize(fptr, &filesize);
             if (ret == FILE_INTERNAL_ERR) {
                 //send_internal_server_error(rcv);
+                // todo
                 break;
             }
 
             char* filecontent;
             if (http_request.starting.method == M_GET) {
                 ret = take_filecontent(fptr, filesize, &filecontent);
+                fclose(fptr);
                 if (ret == FILE_INTERNAL_ERR) {
                     //send_internal_server_error(rcv);
+                    // todo
                     break;
                 }
 
                 printf("DEBUG: get ok\n\tfilename: %s\n\tfilesize: %lu\n\tfilecontent: %s\n",
                     http_request.starting.target, filesize, filecontent);
                 // send_get_success(rcv);
+                // todo
+                free(filecontent);
             }
             else { /* if (http_request.starting.method == M_HEAD) { */
+                fclose(fptr);
                 printf("DEBUG: HEAD ok\n\tfilename: %s\n\tfilesize: %lu\n\tfilecontent: %s\n",
                     http_request.starting.target, filesize, filecontent);
                 // send_head_success(rcv);
             }
 
-            // Preparing buffer for another communicate
-            //char* new_request = request_end + 2;
+            if (http_request.headers.con_close)
+                break;
 
-
-            exit(1);
+            // Preparing buffer for another message
+            ret = adjust_buffer_state(&buffer, &buffer_size, &remaining_buffer_size, &read_loc, request_end);
+            if (ret == -1) {
+                //send_internal_server_error(rcv);
+                break;
+            }
         }
 
+        free(buffer);
         close(rcv);
     }
 
     close(sock);
-    fclose(corelated_servers);
 }

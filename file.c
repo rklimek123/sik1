@@ -32,7 +32,7 @@ static bool verify_file_contained_in_root(const char* filename) {
 int take_file(const char* filesystem, char* filename, FILE** out_fptr) {
     // Verify if filename doesn't try to get outside the root directory
     if (!verify_file_contained_in_root(filename))
-        return FILE_NOT_FOUND;
+        return FILE_REACHOUT;
     
     size_t filesystem_len = strlen(filesystem);
     size_t filename_len = strlen(filename);
