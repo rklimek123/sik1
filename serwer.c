@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include "co_servers.h"
 #include "file.h"
 #include "http.h"
 
@@ -60,14 +61,12 @@ int main (int argc, char *argv[]) {
         // Cannot open the directory
         syserr();
     }
-        
     closedir(root);
 
-    FILE* corelated_servers = fopen(argv[2], "r");
-    if (!corelated_servers)
-        // Cannot open the corelated servers file
+    const char* corelated_servers = argv[2];
+    if (is_file(corelated_servers) == FILE_NOT_FOUND)
+        // Cannot find the corelated servers file
         syserr();
-    fclose(corelated_servers);
 
     short port;
     if (argc == 4)
@@ -216,20 +215,27 @@ int main (int argc, char *argv[]) {
                     continue;
                 }
                 else if (ret == FILE_NOT_FOUND) {
-                    /* todo
-                    correlated_response_t res;
-                    if (search_correlated_servers(http_request.starting.target, &res)) {
-                        if (send_found(rcv, &res) == SEND_ERROR) {
+                    char* res;
+                    
+                    ret = search_corelated_servers(corelated_servers, http_request.starting.target, &res);
+                    if (ret == COS_FOUND) {
+                        if (send_found(rcv, res) == SEND_ERROR) {
+                            free(res);
                             send_internal_server_error(rcv);
                             break;
                         }
+                        free(res);
                     }
-                    else {*/
+                    else if (ret == COS_NOT_FOUND) {
                         if (send_not_found(rcv) == SEND_ERROR) {
                             send_internal_server_error(rcv);
                             break;
                         }
-                    //}
+                    }
+                    else { /* if (ret == COS_INTERNAL_ERR) */
+                        send_internal_server_error(rcv);
+                        break;
+                    }
                     
                     if (http_request.headers.con_close) break;
 

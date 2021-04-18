@@ -199,9 +199,6 @@ static int send_msg(int target, const char* message, size_t msg_size) {
     return SEND_OK;
 }
 
-//debug
-#include <stdio.h>
-
 int send_success(int target, request_t* response) {
     static const char* base_msg = "HTTP/1.1 200 OK\r\n";
     static size_t base_msg_size = 17;
@@ -309,10 +306,16 @@ int send_success(int target, request_t* response) {
             return SEND_ERROR;
         }
     }
-    
-    send_msg(target, result, result_size);
+
+    int ret = send_msg(target, result, result_size);
     free(result);
-    return SEND_OK;
+    return ret;
+}
+
+int send_found(int target, const char* address) {
+    static const char* err_msg = "HTTP/1.1 404 Not Found\r\n\r\n";
+    static size_t err_msg_size = 26;
+    return send_msg(target, err_msg, err_msg_size);
 }
 
 int send_bad_request(int target) {

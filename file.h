@@ -14,6 +14,9 @@
 #define FILE_NOT_FOUND 1
 #define FILE_REACHOUT 1
 
+// Checks whether a file in filepath exists and is a file.
+int is_file(const char* filepath);
+
 // Opens a file named filename into out_fptr ion a readonly mode,
 // treating the directory supplied in filesystem as root.
 int take_file(const char* filesystem, char* filename, FILE** out_fptr);

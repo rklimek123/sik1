@@ -1,5 +1,14 @@
 #include "file.h"
 
+int is_file(const char* filepath) {
+    struct stat file_stat;
+    stat(filepath, &file_stat);
+    if (!S_ISREG(file_stat.st_mode)) {
+        return FILE_NOT_FOUND;
+    }
+    return FILE_OK;
+}
+
 static bool verify_file_contained_in_root(const char* filename) {
     int64_t depth = 0;  // On .. depth decrements.
                         // On . or blank it remains constant.
@@ -50,9 +59,7 @@ int take_file(const char* filesystem, char* filename, FILE** out_fptr) {
         return FILE_INTERNAL_ERR;
     }
 
-    struct stat file_stat;
-    stat(concat, &file_stat);
-    if (!S_ISREG(file_stat.st_mode)) {
+    if (is_file(concat) == FILE_NOT_FOUND) {
         free(concat);
         return FILE_NOT_FOUND;
     }
