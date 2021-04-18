@@ -19,21 +19,6 @@
 #define H_CONTENT_LENGTH 2
 #define H_SERVER         3
 
-///// Status codes /////
-#define C_OK              200
-#define C_FOUND           302
-#define C_BAD_REQUEST     400
-#define C_NOT_FOUND       404
-#define C_INTERNAL_ERROR  500
-#define C_NOT_IMPLEMENTED 501
-
-#define STR_OK              "OK"
-#define STR_FOUND           "Found"
-#define STR_BAD_REQUEST     ("Bad Request")
-#define STR_NOT_FOUND       ("Not Found")
-#define STR_INTERNAL_ERROR  ("Internal Server Error")
-#define STR_NOT_IMPLEMENTED ("Not Implemented")
-
 ///// Target files /////
 #define F_OK         0   // Filename falls under the regex [a-zA-Z0-9\.-/]*
 #define F_INCORRECT  1   // Contrary to F_OK
@@ -87,10 +72,26 @@ int parse_http_request(char* raw, request_t* out);
 // Frees the library data, eg. regexes
 void parse_http_clean();
 
+///// Response codes /////
+#define C_OK              200
+#define C_FOUND           302
+#define C_BAD_REQUEST     400
+#define C_NOT_FOUND       404
+#define C_INTERNAL_ERROR  500
+#define C_NOT_IMPLEMENTED 501
+
+#define STR_OK              "OK"
+#define STR_FOUND           "Found"
+#define STR_BAD_REQUEST     ("Bad Request")
+#define STR_NOT_FOUND       ("Not Found")
+#define STR_INTERNAL_ERROR  ("Internal Server Error")
+#define STR_NOT_IMPLEMENTED ("Not Implemented")
+
 // Send returns
 #define SEND_ERROR -1
 #define SEND_OK     0
-int send_internal_server_error(int target);
 int send_bad_request(int target);
+int send_internal_server_error(int target);
+int send_not_implemented(int target);
 
 #endif /* HTTP_H */

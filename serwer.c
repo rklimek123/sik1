@@ -163,9 +163,13 @@ int main (int argc, char *argv[]) {
             }
 
             if (http_request.starting.method == M_OTHER) {
-                //send_not_implemented(rcv);
-                // todo
+                if (send_not_implemented(rcv) == SEND_ERROR) {
+                    send_internal_server_error(rcv);
+                    break;
+                }
+
                 if (http_request.headers.con_close) break;
+                
                 if (adjust_buffer_state(&buffer, &buffer_size, &remaining_buffer_size, &read_loc, request_end) != 0) {
                     send_internal_server_error(rcv);
                     break;
