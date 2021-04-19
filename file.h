@@ -10,9 +10,10 @@
 
 // Return codes //
 #define FILE_INTERNAL_ERR -1
-#define FILE_OK 0
-#define FILE_NOT_FOUND 1
-#define FILE_REACHOUT 2
+#define FILE_OK            0
+#define FILE_NOT_FOUND     1
+#define FILE_REACHOUT      2
+#define FILE_EOF           3
 
 // Checks whether a file in filepath exists and is a file.
 int is_file(const char* filepath);
@@ -25,8 +26,9 @@ int take_file(const char* filesystem, char* filename, FILE** out_fptr);
 // fptr should be open in read mode.
 int take_filesize(FILE* fptr, size_t* out_filesize);
 
-// Writes contents of file fptr to out_filesize.
+// Writes contents of file fptr to out_content.
 // fptr should be open in read mode.
-int take_filecontent(FILE* fptr, size_t filesize, char** out_content);
+// *out_content should have enough space to contain chunk_size bytes.
+int take_filecontent_chunk(FILE* fptr, size_t chunk_size, char** out_content, size_t* out_hasread);
 
 #endif /* FILE_H */

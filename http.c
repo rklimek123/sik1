@@ -287,29 +287,13 @@ int send_success(int target, request_t* response) {
         return SEND_ERROR;
     } free(content_lenh);
 
-    if (response->body != NULL) {
-        char* heading = result;
-        size_t heading_size = result_size;
-        result_size = heading_size + response->headers.content_len;
-        result = malloc(result_size + 1);
-        if (!result) {
-            free(heading);
-            return SEND_ERROR;
-        }
-        if (strcpy(result, heading) == NULL) {
-            free(result);
-            free(heading);
-            return SEND_ERROR;
-        } free(heading);
-        if (strcpy(result + heading_size, response->body) == NULL) {
-            free(result);
-            return SEND_ERROR;
-        }
-    }
-
     int ret = send_msg(target, result, result_size);
     free(result);
     return ret;
+}
+
+int send_body_chunk(int target, const char* chunk, size_t chunk_size) {
+    return send_msg(target, chunk, chunk_size);
 }
 
 int send_found(int target, const char* filename, const char* address) {

@@ -10,8 +10,10 @@
 #include "file.h"
 #include "http.h"
 
+#define BODY_CHUNK_SIZE 268435456
 #define BUFFER_SIZE 4096
 #define DEFAULT_HTTP_PORT 8080
+
 
 /////  ERR  /////
 void syserr() {
@@ -260,23 +262,53 @@ int main (int argc, char *argv[]) {
 
             http_request.headers.content_type = "application/octet-stream";
             if (http_request.starting.method == M_GET) {
-                ret = take_filecontent(fptr, http_request.headers.content_len, &http_request.body);
-                fclose(fptr);
-                if (ret == FILE_INTERNAL_ERR) {
+                
+                char* body_chunk = NULL;
+                size_t body_chunk_size = 2 * BODY_CHUNK_SIZE;
+                while (body_chunk == NULL) {
+                    body_chunk_size /= 2;
+                    if (body_chunk_size == 0) {
+                        fclose(fptr);
+                        send_internal_server_error(rcv);
+                        break;
+                    }
+
+                    body_chunk = malloc(body_chunk_size);
+                }
+
+                if (send_success(rcv, &http_request) == SEND_ERROR) {
+                    free(body_chunk);
+                    fclose(fptr);
                     send_internal_server_error(rcv);
                     break;
                 }
 
-                if (send_success(rcv, &http_request) == SEND_ERROR) {
-                    free(http_request.body);
-                    send_internal_server_error(rcv);
-                    break;
+                ret = FILE_OK;
+                while (ret != FILE_EOF) {
+                    size_t has_read;
+                    ret = take_filecontent_chunk(fptr, body_chunk_size, &body_chunk, &has_read);
+                    if (ret == FILE_INTERNAL_ERR) {
+                        send_body_chunk(rcv, "\r\n\r\n", 4);
+                        free(body_chunk);
+                        fclose(fptr);
+                        send_internal_server_error(rcv);
+                        break;
+                    }
+
+                    if (send_body_chunk(rcv, body_chunk, has_read) == SEND_ERROR) {
+                        send_body_chunk(rcv, "\r\n\r\n", 4);
+                        free(body_chunk);
+                        fclose(fptr);
+                        send_internal_server_error(rcv);
+                        break;
+                    }
                 }
-                free(http_request.body);
+                
+                free(body_chunk);
+                fclose(fptr);
             }
             else { /* if (http_request.starting.method == M_HEAD) { */
                 fclose(fptr);
-                http_request.body = NULL;
                 
                 if (send_success(rcv, &http_request) == SEND_ERROR) {
                     send_internal_server_error(rcv);

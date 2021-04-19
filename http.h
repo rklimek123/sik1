@@ -44,14 +44,10 @@ typedef struct http_headers {
                             // According to "Header fields".
 } headers_t;
 
-// HTTP message body
-typedef char* body_t;
-
 // Formatted HTTP request
 typedef struct http_request {
     starting_t starting;
     headers_t  headers;
-    body_t     body;
 } request_t;
 
 ///// Functions /////
@@ -92,7 +88,9 @@ void parse_http_clean();
 #define SEND_ERROR -1
 #define SEND_OK     0
 
+// Sends only the heading.
 int send_success(int target, request_t* response);
+int send_body_chunk(int target, const char* chunk, size_t chunk_size);
 int send_found(int target, const char* filename, const char* address);
 int send_bad_request(int target);
 int send_not_found(int target);

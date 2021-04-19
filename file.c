@@ -85,13 +85,14 @@ int take_filesize(FILE* fptr, size_t* out_filesize) {
     return FILE_OK;
 }
 
-int take_filecontent(FILE* fptr, size_t filesize, char** out_content) {
-    *out_content = malloc(filesize);
-    if (*out_content == NULL)
-        return FILE_INTERNAL_ERR;
-  
-    if (fread(*out_content, 1, filesize, fptr) != filesize)
-        return FILE_INTERNAL_ERR;
+int take_filecontent_chunk(FILE* fptr, size_t chunk_size, char** out_content, size_t* out_hasread) {
+    *out_hasread = fread(*out_content, 1, chunk_size, fptr);
+    if (*out_hasread != chunk_size) {
+        if (feof(fptr) != 0)
+            return FILE_EOF;
+        else
+            return FILE_INTERNAL_ERR;
+    }
     
     return FILE_OK;
 }
