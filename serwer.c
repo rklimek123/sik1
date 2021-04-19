@@ -10,8 +10,8 @@
 #include "file.h"
 #include "http.h"
 
-#define BODY_CHUNK_SIZE 268435456
-#define BUFFER_SIZE 4096
+#define BODY_CHUNK_SIZE 1048576
+#define BUFFER_SIZE 256
 #define DEFAULT_HTTP_PORT 8080
 
 
@@ -105,6 +105,7 @@ int main (int argc, char *argv[]) {
         size_t buffer_size = BUFFER_SIZE;
         size_t remaining_buffer_size = buffer_size;
         char* buffer = malloc(buffer_size + 1);
+        if (!buffer) syserr();
         memset(buffer, 0, buffer_size + 1);
         char* read_loc = buffer;
         char* request_end;
@@ -303,7 +304,7 @@ int main (int argc, char *argv[]) {
                         break;
                     }
                 }
-                
+
                 free(body_chunk);
                 fclose(fptr);
             }
