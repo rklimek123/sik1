@@ -93,7 +93,7 @@ void parse_http_clean();
 #define SEND_OK     0
 
 int send_success(int target, request_t* response);
-int send_found(int target, const char* address);
+int send_found(int target, const char* filename, const char* address);
 int send_bad_request(int target);
 int send_not_found(int target);
 int send_internal_server_error(int target);

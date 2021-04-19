@@ -109,7 +109,7 @@ static int parse_starting_line(char* raw, starting_t* out) {
         out->target_type = F_INCORRECT;
     else
         out->target_type = F_OK;
-        
+
     return PARSE_SUCCESS;
 }
 
@@ -312,16 +312,19 @@ int send_success(int target, request_t* response) {
     return ret;
 }
 
-int send_found(int target, const char* address) {
+int send_found(int target, const char* filename, const char* address) {
     static const char* err_msg = "HTTP/1.1 302 Found\r\n";
     static size_t err_msg_size = 20;
 
     // Address
     size_t address_size = strlen(address);
 
+    // File
+    size_t filename_size = strlen(filename);
+
     /// Concatenation ///
-    // strlen("Location:") = 9, strlen("\r\n\r\n") = 4
-    size_t result_size = err_msg_size + 9 + address_size + 4;
+    // strlen("Location: http://") = 17, strlen("\r\n\r\n") = 4
+    size_t result_size = err_msg_size + 17 + address_size + filename_size + 4;
     char* result = malloc(result_size + 1);
     if (!result) {
         return SEND_ERROR;
@@ -331,11 +334,15 @@ int send_found(int target, const char* address) {
         free(result);
         return SEND_ERROR;
     }
-    if (strcpy(result + err_msg_size, "Location:") == NULL) {
+    if (strcpy(result + err_msg_size, "Location: http://") == NULL) {
         free(result);
         return SEND_ERROR;
     }
-    if (strcpy(result + err_msg_size + 9, address) == NULL) {
+    if (strcpy(result + err_msg_size + 17, address) == NULL) {
+        free(result);
+        return SEND_ERROR;
+    }
+    if (strcpy(result + err_msg_size + 17 + address_size, filename) == NULL) {
         free(result);
         return SEND_ERROR;
     }

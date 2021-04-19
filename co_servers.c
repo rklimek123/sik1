@@ -26,6 +26,7 @@ int search_corelated_servers(const char* lookfilepath, const char* lookfor, char
         return COS_INTERNAL_ERR;
     }
     look_for[lookfor_len] = '\t';
+    look_for[lookfor_len + 1] = '\0';
 
     while (fgets(buffer, buffer_size + 1, lookfile) != NULL) {
         char* ret = strstr(buffer, look_for);

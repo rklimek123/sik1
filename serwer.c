@@ -219,7 +219,7 @@ int main (int argc, char *argv[]) {
                     
                     ret = search_corelated_servers(corelated_servers, http_request.starting.target, &res);
                     if (ret == COS_FOUND) {
-                        if (send_found(rcv, res) == SEND_ERROR) {
+                        if (send_found(rcv, http_request.starting.target, res) == SEND_ERROR) {
                             free(res);
                             send_internal_server_error(rcv);
                             break;
